@@ -1,0 +1,9 @@
+venv/
+.idea/
+
+*/*.pyc
+
+*/*.png
+*/*.jpg
+*/*.jpeg
+data/datasets/
