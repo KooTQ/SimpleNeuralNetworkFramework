@@ -2,7 +2,7 @@ from keras.models import Model
 from keras.layers import Input, Dense, Conv2D, MaxPool2D, Flatten, UpSampling2D, Conv2DTranspose
 from keras.optimizers import SGD
 from data.data_loading.load_mnist import load_mnist_2d_arr
-import numpy as np
+from data.data_loading.helper_functions import gaussian_noising
 import cv2
 
 
@@ -33,16 +33,12 @@ def get_model(input_width=28, input_height=28, input_depth=1, learning_rate=0.00
 
 
 def main():
-    (y_train, _), (y_test, _) = load_mnist_2d_arr(False)
-    y_train = y_train / 255
-    y_test = y_test / 255
+    (y_train, _), (y_test, _) = load_mnist_2d_arr(False, normalize=(0, 255))
+    # y_train = y_train / 255
+    # y_test = y_test / 255
     noise_scale = 0.5
-    train_noise = np.random.normal(0, 1, y_train.shape)
-    test_noise = np.random.normal(0, 1, y_test.shape)
-    x_train = y_train + noise_scale * train_noise
-    x_test = y_test + noise_scale * test_noise
-    x_test = np.clip(x_test, .0, 1.0)
-    x_train = np.clip(x_train, .0, 1.0)
+    normalize = (0., 1.)
+    x_train, x_test = gaussian_noising(y_train, y_test,normalize=normalize , noise_scale=noise_scale)
     print(x_train.shape)
     model = get_model(learning_rate=0.1)
     model.summary()
