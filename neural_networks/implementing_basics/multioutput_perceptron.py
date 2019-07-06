@@ -1,59 +1,85 @@
 import numpy as np
 
 
-def unit_step_func(x):
-    return np.array(list(map((lambda i: 1 if i > 0 else -1), x)))
+def unit_step_func(xs):
+    return np.array(list(map((lambda i: 1 if i > 0 else 0), xs)))
 
 
 def main():
-    and_perceptron = Perceptron(3, False, activation_func=unit_step_func)
-    train_data = [(np.array([1, 1, 1]), np.array([1])),
-                  (np.array([-1, 1, 1]), np.array([-1])),
-                  (np.array([-1, 1, -1]), np.array([-1])),
-                  (np.array([-1, -1, 1]), np.array([-1])),
-                  (np.array([1, -1, -1]), np.array([-1])),
-                  (np.array([1, -1, 1]), np.array([-1]))]
-    test_data = (np.array([-1, -1, -1]),  np.array([-1]))
-    test_cost = float('inf')
-    max_cost = 0.0001
-    while test_cost > max_cost:
+    and_perceptron = MultioutputPerceptron(input_size=3, output_size=2, use_bias=True)
+    train_data = [(np.array([1, 1, 1]), np.array([1, 0])),
+                  (np.array([0, 1, 1]), np.array([0, 1])),
+                  (np.array([1, 0, 1]), np.array([0, 1])),
+                  (np.array([0, 0, 1]), np.array([0, 1])),
+                  (np.array([0, 1, 0]), np.array([0, 1])),
+                  (np.array([1, 0, 0]), np.array([0, 1])),
+                  (np.array([0, 0, 0]), np.array([0, 1])),
+                  (np.array([1, 1, 0]), np.array([0, 1]))]
+
+    test_data = [(np.array([1, 1, 1]), np.array([1, 0])),
+                 (np.array([0, 1, 1]), np.array([0, 1])),
+                 (np.array([1, 0, 1]), np.array([0, 1])),
+                 (np.array([0, 0, 1]), np.array([0, 1]))]
+    test_cost = train_cost = float('inf')
+    max_cost = 0.01
+    max_epoch = 1000
+    learning_rate = 0.5
+    epoch = 1
+    while train_cost > max_cost and epoch < max_epoch:
+        if (epoch % 10) == 0:
+            learning_rate /= 2
+        test_costs = []
+        train_costs = []
+        for x, y in test_data:
+            y_pred = and_perceptron.predict(x)
+            test_err, test_cost = mse_err_cost(y_pred, y)
+            test_costs.append(test_cost)
         for x, y in train_data:
-            y_pred = and_perceptron.predict(test_data[0])
-            test_err, test_cost = mse_err_cost(y_pred, test_data[1])
+            train_cost = and_perceptron.train_gradient_descent(x, y, learning_rate)
+            train_costs.append(train_cost)
+
+        if (epoch % (max_epoch//10)) == 1:
+            print("Epoch: " + str(epoch))
+            print("Learning rate: " + str(learning_rate))
             print("Testing cost: " + str(test_cost))
-            print("Testing pred: " + str(y_pred))
-            train_cost = and_perceptron.train_gradient_descent(x, y, 0.1)
             print("Training cost: " + str(train_cost) + "\n\n")
-    y_pred = and_perceptron.predict(test_data[0])
-    test_err, test_cost = mse_err_cost(y_pred, test_data[1])
+        test_cost = np.mean(np.array(test_costs))
+        train_cost = np.mean(np.array(train_costs))
+        epoch += 1
+
+    test_costs = []
+    for x, y in test_data:
+        y_pred = and_perceptron.predict(x)
+        test_err, test_cost = mse_err_cost(y_pred, y)
+        test_costs.append(test_cost)
+    test_cost = np.mean(np.array(test_costs))
     print("Testing cost: " + str(test_cost))
-    print("Testing pred: " + str(y_pred))
 
 
 def mse_err_cost(y_pred, y_true):
-    return (y_pred - y_true), (y_pred - y_true) ** 2
+    return (y_pred - y_true), np.mean((y_pred - y_true) ** 2)
 
 
 def mae_err_cost(y_pred, y_true):
-    return (y_pred - y_true), ((y_pred - y_true) ** 2)**0.5
+    return (y_pred - y_true), np.mean(((y_pred - y_true) ** 2)**0.5)
 
 
-class Perceptron:
-    def __init__(self, input_size, use_bias=False, activation_func=(lambda x: x)):
+class MultioutputPerceptron:
+    def __init__(self, input_size, output_size, use_bias=False, activation_func=(lambda x: x)):
         self.use_bias = use_bias
+        self.output_size = output_size
+        self.input_size = input_size
         self.activation_func = activation_func
         if use_bias:
-            self.weights = 0.01 * np.random.randn(1, input_size + 1)
+            self.weights = 0.01 * np.random.randn(output_size, input_size + 1)
         else:
-            self.weights = 0.01 * np.random.randn(1, input_size)
+            self.weights = 0.01 * np.random.randn(output_size, input_size)
 
     def predict(self, inputs):
         if self.use_bias:
-            inputs = np.concatenate((inputs, np.array([1])))
-        print(inputs)
-        print(self.weights)
+            ones = np.array([1])
+            inputs = np.concatenate((inputs, ones), axis=-1)
         product = np.matmul(self.weights, inputs)
-        print(product)
         result = self.activation_func(product)
 
         return result
@@ -125,9 +151,16 @@ class Perceptron:
     def train_gradient_descent(self, inputs, y_true, l_rate, cost_func=mse_err_cost):
         y_pred = self.predict(inputs)
         err, cost = cost_func(y_pred, y_true)
+        err = err.reshape((1, self.output_size))
         if self.use_bias:
-            inputs = np.concatenate((inputs, np.array([1])))
-        self.weights = self.weights - inputs * l_rate * err
+            ones = np.array([1])
+            inputs = np.concatenate((inputs, ones), axis=-1)
+            inputs = inputs.reshape((self.input_size + 1, 1))
+        else:
+            inputs = inputs.reshape((self.input_size, 1))
+
+        dif = l_rate * np.matmul(inputs, err)
+        self.weights = self.weights - dif.T
         return cost
 
 
