@@ -18,8 +18,7 @@ class Perceptron:
             inputs = np.concatenate((inputs, np.array([1])))
         product = np.matmul(self.weights, inputs)
         if activation_func is not None:
-            pred, der = activation_func(product)
-            return pred, der
+            return activation_func(product)
 
         return product
 

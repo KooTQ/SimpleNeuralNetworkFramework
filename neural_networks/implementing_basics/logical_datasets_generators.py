@@ -24,6 +24,21 @@ def xor_label_func(true_false, inputs):
     return [np.array(inputs), t if sum(map((lambda x: x == t), inputs)) == 1 else f]
 
 
+def and_label_func_multi_output(true_false, inputs):
+    t, f = true_false
+    return [np.array(inputs), t if all(map((lambda x: x == 1), inputs)) else f]
+
+
+def or_label_func_multi_output(true_false, inputs):
+    t, f = true_false
+    return [np.array(inputs), t if any(map((lambda x: x == 1), inputs)) else f]
+
+
+def xor_label_func_multi_output(true_false, inputs):
+    t, f = true_false
+    return [np.array(inputs), t if sum(map((lambda x: x == 1), inputs)) == 1 else f]
+
+
 def data_generator(true_false, variables_amount, label_func, use_noise=False, aug_factor=1):
     t, f = true_false
 

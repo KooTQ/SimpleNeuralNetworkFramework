@@ -12,11 +12,11 @@ def unit_step_func_neg1_1(x):
 
 
 def accuracy_0_1(pred, y):
-    return unit_step_func_0_1(pred)[0] - y == 0
+    return unit_step_func_0_1(pred)[0] - y == np.zeros(shape=pred.shape)
 
 
 def accuracy_neg1_1(pred, y):
-    return unit_step_func_neg1_1(pred)[0] - y == 0
+    return unit_step_func_neg1_1(pred)[0] - y == np.zeros(shape=pred.shape)
 
 
 def sigmoid(x):

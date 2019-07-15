@@ -1,62 +1,27 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-
-def unit_step_func_0_1(x):
-    # if x is iterable:
-
-    return np.array(list(map((lambda i: 1 if i > 0.5 else 0), x)))
-
-
-def unit_step_func_neg1_1(x):
-    # if x is iterable:
-
-    return np.array(list(map((lambda i: 1 if i > 0 else -1), x)))
-
-
-def accuracy_0_1(pred, y):
-    return 0 if np.sum(unit_step_func_0_1(pred) - np.array(y)) != 0 else 1
-
-
-def accuracy_neg1_1(pred, y):
-    return 0 if np.sum(unit_step_func_neg1_1(pred) - np.array(y)) != 0 else 1
-
-
-def sigmoid(x):
-    return np.array(1 / (np.exp(-x) + 1))
-
-
-def sigmoid_neg1_1(x):
-    return (np.array(1 / (np.exp(-x) + 1)) - 0.5) * 2
-
-
-def mse_err_cost(y_true, y_pred):
-    return 2*(y_true - y_pred), (y_true - y_pred) ** 2
-
-
-def mae_err_cost(y_true, y_pred):
-    return (y_true - y_pred), ((y_true - y_pred) ** 2)**0.5
+from neural_networks.implementing_basics.costs_activations import mse_err_cost, sigmoid_training, accuracy_0_1
 
 
 class MultioutputPerceptron:
-    def __init__(self, input_size, output_size, use_bias=False, activation_func=(lambda x: x)):
+    def __init__(self, input_size, output_size, use_bias=False, training_activation_func=(lambda x: x, 1)):
         self.use_bias = use_bias
         self.output_size = output_size
         self.input_size = input_size
-        self.activation_func = activation_func
+        self.training_activation_func = training_activation_func
         if use_bias:
             self.weights = 0.001 * np.random.randn(output_size, input_size + 1)
         else:
             self.weights = 0.001 * np.random.randn(output_size, input_size)
 
-    def predict(self, inputs):
+    def predict(self, inputs, activation_func=None):
         if self.use_bias:
-            ones = np.array([1])
-            inputs = np.concatenate((inputs, ones), axis=-1)
+            inputs = np.concatenate((inputs, np.array([1])), axis=-1)
         product = np.matmul(self.weights, inputs)
-        result = self.activation_func(product)
+        if activation_func is not None:
+            return activation_func(product)
 
-        return result
+        return product
 
     # ____________________________________________________________________
     #                           GRADIENT DESCENT
@@ -123,7 +88,7 @@ class MultioutputPerceptron:
     # err(w) is error for given weights; it can be calculated for single x or for batches of x's
     # _________________________Implementation_____________________________
     def train_gradient_descent(self, inputs, y_true, l_rate, cost_func=mse_err_cost):
-        y_pred = self.predict(inputs)
+        y_pred, der = self.predict(inputs, self.training_activation_func)
         err, cost = cost_func(y_pred, y_true)
         err = err.reshape((1, self.output_size))
         if self.use_bias:
@@ -133,7 +98,7 @@ class MultioutputPerceptron:
         else:
             inputs = inputs.reshape((self.input_size, 1))
 
-        dif = l_rate * np.matmul(inputs, err)
+        dif = l_rate * inputs * err * der
         self.weights = self.weights - dif.T
         return cost
 
@@ -146,30 +111,30 @@ class MultioutputPerceptron:
         for i in range(len(xs)):
             inputs = xs[i]
             y_true = ys[i]
-            y_pred = self.predict(inputs)
+            y_pred, der = self.predict(inputs, self.training_activation_func)
             err, cost = cost_func(y_pred, y_true)
             if self.use_bias:
                 inputs = np.concatenate((inputs, np.array([1])))
-            dif = l_rate * inputs * err
+            dif = l_rate * inputs * err * der
             batch_difs.append(dif)
         update = sum(batch_difs)/len(xs)
-        self.weights = self.weights - update
+        self.weights = self.weights + update
         return np.mean(np.array(cost))
 
 
 def main():
-    and_perceptron = MultioutputPerceptron(input_size=3, output_size=2, activation_func=sigmoid, use_bias=True)
-    train_data = [(np.array([1, 1, 1]), np.array([1, 0])),
-                  (np.array([0, 0, 1]), np.array([0, 1])),
-                  (np.array([0, 1, 0]), np.array([0, 1])),
-                  (np.array([0, 1, 1]), np.array([0, 1])),
-                  (np.array([1, 0, 0]), np.array([0, 1])),
-                  (np.array([1, 0, 1]), np.array([0, 1])),
-                  (np.array([1, 1, 0]), np.array([0, 1])),
-                  (np.array([0, 0, 0]), np.array([0, 1]))]
+    input_size = 2
+    output_size = 2
+    and_perceptron = MultioutputPerceptron(input_size=input_size, output_size=output_size,
+                                           training_activation_func=sigmoid_training,
+                                           use_bias=True)
+    train_data = [(np.array([1, 1]), np.array([1, 0])),
+                  (np.array([0, 0]), np.array([0, 1])),
+                  (np.array([0, 1]), np.array([0, 1])),
+                  (np.array([1, 0]), np.array([0, 1]))]
 
     err = float('inf')
-    init_l_rate = 0.01
+    init_l_rate = 0.02
     max_err = 0.01
     epoch_max = 1000
     epoch = -1
@@ -187,7 +152,8 @@ def main():
             acc += accuracy_0_1(pred, y)
             err += train_cost
         err = np.mean(err / len(train_data))
-        acc = acc / len(train_data)
+        acc = acc/len(train_data)
+        acc = np.sum(acc)/output_size
         epochs.append(epoch + 1)
         errs.append(err)
         accs.append(acc)

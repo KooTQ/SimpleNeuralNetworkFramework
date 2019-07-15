@@ -1,122 +1,15 @@
-import itertools
 from functools import partial
 
-from neural_networks.implementing_basics.perceptron import Perceptron, split_batches, \
-    sigmoid_training as activation_training, \
+from neural_networks.implementing_basics.logical_datasets_generators import split_batches, data_generator, \
+    and_label_func_multi_output, or_label_func_multi_output, xor_label_func_multi_output
+
+from neural_networks.implementing_basics.costs_activations import sigmoid_training as activation_training, \
     sigmoid as activation, \
     accuracy_0_1 as accuracy
-from itertools import product
+
+from neural_networks.implementing_basics.multioutput_perceptron import MultioutputPerceptron
+
 import numpy as np
-
-noise_factor = 0.015
-train_aug = 5
-t = 1
-f = 0
-
-
-def noise_func(items):
-    return np.random.randn(*items.shape) * noise_factor + items
-
-
-def and_label_func(inputs):
-    return [np.array(inputs), t if all(map((lambda x: x == t), inputs)) else f]
-
-
-def or_label_func(inputs):
-    return [np.array(inputs), t if any(map((lambda x: x == t), inputs)) else f]
-
-
-def xor_label_func(inputs):
-    return [np.array(inputs), t if sum(map((lambda x: x == t), inputs)) == 1 else f]
-
-
-def data_generator(variables_amount, label_func, use_noise=False):
-    data = [[f, t]] * variables_amount
-    data = list(map(label_func, product(*data)))
-    if use_noise:
-        data = list(map(lambda x: [noise_func(x[0]), x[1]], data))
-    return data
-
-
-def train_batch(batch_size, perceptron, learning_rate, cost_stop, epoch_stop, train_data, eval_data):
-    train_cost = float('inf')
-    epoch = -1
-    train_costs = []
-    batch_cost = 0
-    while train_cost > cost_stop and epoch < epoch_stop - 1:
-        epoch += 1
-        batches = split_batches(batch_size, train_data, True)
-        for batch in batches:
-            cost = perceptron.train_stochastic_gradient_descent(batch[0], batch[1], learning_rate)
-            batch_cost += cost
-        train_costs.append(batch_cost/len(batches[0]))
-        batch_cost = 0
-    ev, acc = evaluation(perceptron, eval_data)
-    return epoch, ev, acc, train_costs
-
-
-def train_one_by_one(perceptron, learning_rate, cost_stop, epoch_stop, train_data, eval_data):
-    epoch_cost = float('inf')
-    epoch = -1
-    train_costs = []
-    while epoch_cost > cost_stop and epoch < epoch_stop - 1:
-        epoch += 1
-        epoch_cost = 0
-        for x, y in train_data:
-            x = np.array(x)
-            y = np.array(y)
-            train_cost = perceptron.train_gradient_descent(x, y, learning_rate)
-            epoch_cost += train_cost
-        epoch_cost /= len(train_data)
-        train_costs.append(epoch_cost)
-    eval_, acc = evaluation(perceptron, eval_data)
-    return epoch, eval_, acc, train_costs
-
-
-def evaluation(perceptron, eval_data):
-    evals = []
-    acc = 0.
-    for x, y_true in eval_data:
-        x = np.array(x)
-        y_true = np.array(y_true)
-        y_pred = perceptron.predict(x)
-        ev = ((y_pred - y_true) ** 2) ** 0.5
-        evals.append(ev)
-        acc += accuracy(activation(y_pred), y_true)
-    acc = acc / len(eval_data)
-    return evals, acc
-
-
-def train_many(train_func, label_func, input_amount, use_bias, learning_rate, cost_stop, epoch_stop, repeats=10):
-    epochs = []
-    evals = []
-    accs = []
-    train_costs = []
-    train_data = []
-    for i in range(train_aug):
-        train_data.append(data_generator(input_amount, label_func, False))
-
-    train_data = list(itertools.chain.from_iterable(train_data))
-    for i in range(repeats):
-        eval_data = data_generator(input_amount, label_func, False)
-        perceptron = Perceptron(input_amount, use_bias, training_activation_func=activation_training)
-        epoch, ev, acc, train_cost = train_func(perceptron, learning_rate,
-                                                cost_stop, epoch_stop, train_data, eval_data)
-        epochs.append(epoch + 1)
-        evals.append(ev)
-        accs.append(acc)
-        train_costs.append(train_cost)
-    return epochs, train_costs, evals, accs
-
-
-def problem_analysis(inputs_amount, train_func, learning_rate, cost_stop, epoch_stop, repeat, label_func):
-    no_bias_results = train_many(train_func, label_func,
-                                 inputs_amount, False, learning_rate, cost_stop, epoch_stop, repeat)
-    bias_results = train_many(train_func, label_func,
-                              inputs_amount, True, learning_rate, cost_stop, epoch_stop, repeat)
-    print_results(no_bias_results)
-    print_results(bias_results)
-    print('\n')
 
 
 def print_results(results):
@@ -138,17 +31,128 @@ def print_results(results):
     print("\n")
 
 
+class LogicalExperimentsMultiOutputPerceptron:
+    def __init__(self, inputs_amount, learning_rate, label_func, training_activation_func, in_true_false,
+                 out_true_false, epoch_stop, cost_stop, train_aug_factor=1, batch_size=None):
+        self.inputs_amount = inputs_amount
+        self.outputs_amount = 2
+        self.train_aug_factor = train_aug_factor
+        self.label_func = partial(label_func, out_true_false)
+        self.training_activation_func = training_activation_func
+        self.l_rate = learning_rate
+        self.in_true_false = in_true_false
+        self.epoch_stop = epoch_stop
+        self.cost_stop = cost_stop
+        self.batch_size = batch_size
+        self.perceptron = None
+
+    def train_batch(self, train_data, eval_data):
+        train_cost = float('inf')
+        epoch = -1
+        train_costs = []
+        batch_cost = 0
+        while train_cost > self.cost_stop and epoch < self.epoch_stop - 1:
+            epoch += 1
+            batches = split_batches(self.batch_size, train_data, True)
+            print(batches)
+            for batch in batches:
+                cost = self.perceptron.train_stochastic_gradient_descent(batch[0], batch[1], self.l_rate)
+                batch_cost += cost
+            train_costs.append(batch_cost/len(batches[0]))
+            batch_cost = 0
+        ev, acc = self.evaluation(eval_data)
+        return epoch, ev, acc, train_costs
+
+    def train_one_by_one(self, train_data, eval_data):
+        epoch_cost = float('inf')
+        epoch = -1
+        train_costs = []
+        while epoch_cost > self.cost_stop and epoch < self.epoch_stop - 1:
+            epoch += 1
+            epoch_cost = 0
+            for x, y in train_data:
+                x = np.array(x)
+                y = np.array(y)
+                train_cost = self.perceptron.train_gradient_descent(x, y, self.l_rate)
+                epoch_cost += train_cost
+            epoch_cost = np.sum(epoch_cost/len(train_data))
+            train_costs.append(epoch_cost)
+        eval_, acc = self.evaluation(eval_data)
+        return epoch, eval_, acc, train_costs
+
+    def evaluation(self, eval_data):
+        evals = []
+        acc = 0.
+        for x, y_true in eval_data:
+            x = np.array(x)
+            y_true = np.array(y_true)
+            y_pred = self.perceptron.predict(x)
+            ev = ((y_pred - y_true) ** 2) ** 0.5
+            evals.append(ev)
+            acc += np.sum(accuracy(activation(y_pred), y_true)) / 2
+        acc /= len(eval_data)
+        return evals, acc
+
+    def perform_experiments(self, use_bias, repeats):
+        epochs = []
+        evals = []
+        accs = []
+        train_costs = []
+        if self.batch_size is not None:
+            train_func = self.train_batch
+        else:
+            train_func = self.train_one_by_one
+
+        for i in range(repeats):
+            train_data = data_generator(self.in_true_false, self.inputs_amount,
+                                        self.label_func, True, self.train_aug_factor)
+            eval_data = data_generator(self.in_true_false, self.inputs_amount, self.label_func, False)
+            self.perceptron = MultioutputPerceptron(self.inputs_amount, self.outputs_amount, use_bias,
+                                                    training_activation_func=activation_training)
+            epoch, ev, acc, train_cost = train_func(train_data, eval_data)
+            epochs.append(epoch + 1)
+            evals.append(ev)
+            accs.append(acc)
+            train_costs.append(train_cost)
+        return epochs, train_costs, evals, accs
+
+    def problem_analysis(self, repeat=5):
+
+        no_bias_results = self.perform_experiments(False, repeat)
+        bias_results = self.perform_experiments(True, repeat)
+        print('No bias:')
+        print_results(no_bias_results)
+        print('With bias:')
+        print_results(bias_results)
+        print('\n\n')
+
+
 def main():
-    cost_stop = 0.01
-    learning_rate = 0.01
+    cost_stop = 0.0001
+    learning_rate = 0.1
     epoch_stop = 1000
-    repeat = 1
-    batch_size = 5
-    train_func = partial(train_batch, batch_size)
-    inputs_amount = 2
-    problem_analysis(inputs_amount, train_func, learning_rate, cost_stop, epoch_stop, repeat, and_label_func)
-    problem_analysis(inputs_amount, train_func, learning_rate, cost_stop, epoch_stop, repeat, or_label_func)
-    problem_analysis(inputs_amount, train_func, learning_rate, cost_stop, epoch_stop, repeat, xor_label_func)
+    repeat = 3
+    train_aug_factor = 3
+    inputs_amount = 7
+    in_true_false = (1, 0)
+    out_true_false = (np.array([1, 0]), np.array([0, 1]))
+    print('And logical function:')
+    and_experiments = LogicalExperimentsMultiOutputPerceptron(inputs_amount, learning_rate, and_label_func_multi_output,
+                                                              activation_training, in_true_false, out_true_false,
+                                                              epoch_stop, cost_stop, train_aug_factor)
+    and_experiments.problem_analysis(repeat)
+
+    print('Or logical function:')
+    or_experiments = LogicalExperimentsMultiOutputPerceptron(inputs_amount, learning_rate, or_label_func_multi_output,
+                                                             activation_training, in_true_false, out_true_false,
+                                                             epoch_stop, cost_stop, train_aug_factor)
+    or_experiments.problem_analysis(repeat)
+
+    print('Xor logical function:')
+    xor_experiments = LogicalExperimentsMultiOutputPerceptron(inputs_amount, learning_rate, xor_label_func_multi_output,
+                                                              activation_training, in_true_false, out_true_false,
+                                                              epoch_stop, cost_stop, train_aug_factor)
+    xor_experiments.problem_analysis(repeat)
 
 
 if __name__ == '__main__':

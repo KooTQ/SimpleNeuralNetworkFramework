@@ -31,7 +31,7 @@ def print_results(results):
     print("\n")
 
 
-class LogicalExperiments:
+class LogicalExperimentsPerceptron:
     def __init__(self, inputs_amount, learning_rate, label_func, training_activation_func,
                  true_false, epoch_stop, cost_stop, batch_size=None):
         self.inputs_amount = inputs_amount
@@ -96,7 +96,6 @@ class LogicalExperiments:
         evals = []
         accs = []
         train_costs = []
-        train_data = []
         if self.batch_size is not None:
             train_func = self.train_batch
         else:
@@ -131,16 +130,19 @@ def main():
     repeat = 3
     inputs_amount = 2
     true_false = (1, 0)
-    and_experiments = LogicalExperiments(inputs_amount, learning_rate, and_label_func,
-                                         activation_training, true_false, epoch_stop, cost_stop)
+    print('And logical function:')
+    and_experiments = LogicalExperimentsPerceptron(inputs_amount, learning_rate, and_label_func,
+                                                   activation_training, true_false, epoch_stop, cost_stop)
     and_experiments.problem_analysis(repeat)
 
-    or_experiments = LogicalExperiments(inputs_amount, learning_rate, or_label_func,
-                                        activation_training, true_false, epoch_stop, cost_stop)
+    print('Or logical function:')
+    or_experiments = LogicalExperimentsPerceptron(inputs_amount, learning_rate, or_label_func,
+                                                  activation_training, true_false, epoch_stop, cost_stop)
     or_experiments.problem_analysis(repeat)
 
-    xor_experiments = LogicalExperiments(inputs_amount, learning_rate, xor_label_func,
-                                         activation_training, true_false, epoch_stop, cost_stop)
+    print('Xor logical function:')
+    xor_experiments = LogicalExperimentsPerceptron(inputs_amount, learning_rate, xor_label_func,
+                                                   activation_training, true_false, epoch_stop, cost_stop)
     xor_experiments.problem_analysis(repeat)
 
 
