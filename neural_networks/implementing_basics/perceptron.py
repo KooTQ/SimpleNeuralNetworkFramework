@@ -1,77 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import random
-from functools import partial
-
-
-def unit_step_func_0_1(x):
-    sign = x > 0.5
-    return sign, sign
-
-
-def unit_step_func_neg1_1(x):
-    sign = (x > 0) * 2 - 1
-    return sign, sign
-
-
-def split_batches(batch_size, whole_data, shuffle=False):
-    indices = range(len(whole_data))
-    if shuffle:
-        random.shuffle(list(indices))
-    split_data = []
-    batchs_amount = len(whole_data) // batch_size
-    for i in range(batchs_amount):
-        batch_xs = []
-        batch_ys = []
-        for j in range(batch_size):
-            single_data = whole_data[indices[i*batch_size+j]]
-            batch_xs.append(single_data[0])
-            batch_ys.append(single_data[1])
-        split_data.append([batch_xs, batch_ys])
-    return split_data
-
-
-def accuracy_0_1(pred, y):
-    return unit_step_func_0_1(pred)[0] - y == 0
-
-
-def accuracy_neg1_1(pred, y):
-    return unit_step_func_neg1_1(pred)[0] - y == 0
-
-
-def sigmoid(x):
-    return np.array(1 / (np.exp(-x) + 1))
-
-
-def sigmoid_training(x):
-    sig = sigmoid(x)
-    return sig, sig * (1 - sig)
-
-
-def sigmoid_neg1_1(x):
-    return 2 / (np.exp(-x) + 1) - 1
-
-
-def sigmoid_neg1_1_training(x):
-    sig = sigmoid_neg1_1(x)
-    return sig, 2*sig*(1-sig)
-
-
-def relu_training(x):
-    condition = x > 0.
-    return x*condition, condition
-
-
-def relu(x):
-    return x*(x > 0.)
-
-
-def mse_err_cost(y_true, y_pred):
-    return 2*(y_true - y_pred), (y_true - y_pred) ** 2
-
-
-def mae_err_cost(y_true, y_pred):
-    return (y_true - y_pred), ((y_true - y_pred) ** 2)**0.5
+from neural_networks.implementing_basics.costs_activations import mse_err_cost, sigmoid_training, accuracy_0_1
 
 
 class Perceptron:
@@ -190,7 +120,6 @@ class Perceptron:
 
 def main():
     perc = Perceptron(2, True, sigmoid_training)
-    batch_size = 8
     train_data = [[[1, 0], [1]], [[0, 0], [0]], [[1, 1], [1]], [[0, 1], [1]],
                   [[1, 0], [1]], [[0, 0], [0]], [[1, 1], [1]], [[0, 1], [1]],
                   [[1, 0], [1]], [[0, 0], [0]], [[1, 1], [1]], [[0, 1], [1]]]
@@ -203,41 +132,25 @@ def main():
     epochs = []
     errs = []
     accs = []
-    # indecies = list(range(len(train_data)))
+    indecies = list(range(len(train_data)))
 
     l_rate = init_l_rate
-    split = partial(split_batches, batch_size)
     while err > max_err and epoch < epoch_max - 1:
         epoch += 1
         err = 0
         acc = 0
-        # random.shuffle(indecies)
-        # for i in range(len(train_data)):
-        #     x, y = train_data[indecies[i]]
-        #     cost = perc.train_gradient_descent(np.array(x), np.array(y), l_rate, mse_err_cost)
-        #     pred = perc.predict(x)
-        #     acc += accuracy_0_1(pred, y)
-        #     err += cost
-        # err = err / len(train_data)
-        # acc = acc / len(train_data)
-        # epochs.append(epoch + 1)
-        # errs.append(err)
-        # accs.append(acc)
-        batches = split(train_data, True)
-        for batch in batches:
-            cost = perc.train_stochastic_gradient_descent(batch[0], batch[1], l_rate, mse_err_cost)
-            b_acc = 0
-            for i in range(len(batch[0])):
-                pred = perc.predict(batch[0][i])
-                print(batch[0][i], pred, batch[1][i])
-                b_acc += accuracy_0_1(pred, batch[1][i])[0]
-            b_acc /= batch_size
-            print(b_acc)
-            acc += b_acc
+        random.shuffle(indecies)
+        for i in range(len(train_data)):
+            x, y = train_data[indecies[i]]
+            cost = perc.train_gradient_descent(np.array(x), np.array(y), l_rate, mse_err_cost)
+            pred = perc.predict(x)
+            acc += accuracy_0_1(pred, y)
             err += cost
-        accs.append(acc/len(batches))
-        errs.append(err/len(batches))
-        epochs.append(epoch)
+        err = err / len(train_data)
+        acc = acc / len(train_data)
+        epochs.append(epoch + 1)
+        errs.append(err)
+        accs.append(acc)
 
     plt.plot(epochs, errs, label='errs')
     print(accs)
