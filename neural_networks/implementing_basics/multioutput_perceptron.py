@@ -1,67 +1,41 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def unit_step_func(xs):
-    return np.array(list(map((lambda i: 1 if i > 0 else 0), xs)))
+def unit_step_func_0_1(x):
+    # if x is iterable:
+
+    return np.array(list(map((lambda i: 1 if i > 0.5 else 0), x)))
 
 
-def main():
-    and_perceptron = MultioutputPerceptron(input_size=3, output_size=2, use_bias=True)
-    train_data = [(np.array([1, 1, 1]), np.array([1, 0])),
-                  (np.array([0, 1, 1]), np.array([0, 1])),
-                  (np.array([1, 0, 1]), np.array([0, 1])),
-                  (np.array([0, 0, 1]), np.array([0, 1])),
-                  (np.array([0, 1, 0]), np.array([0, 1])),
-                  (np.array([1, 0, 0]), np.array([0, 1])),
-                  (np.array([0, 0, 0]), np.array([0, 1])),
-                  (np.array([1, 1, 0]), np.array([0, 1]))]
+def unit_step_func_neg1_1(x):
+    # if x is iterable:
 
-    test_data = [(np.array([1, 1, 1]), np.array([1, 0])),
-                 (np.array([0, 1, 1]), np.array([0, 1])),
-                 (np.array([1, 0, 1]), np.array([0, 1])),
-                 (np.array([0, 0, 1]), np.array([0, 1]))]
-    test_cost = train_cost = float('inf')
-    max_cost = 0.01
-    max_epoch = 1000
-    learning_rate = 0.5
-    epoch = 1
-    while train_cost > max_cost and epoch < max_epoch:
-        if (epoch % 10) == 0:
-            learning_rate /= 2
-        test_costs = []
-        train_costs = []
-        for x, y in test_data:
-            y_pred = and_perceptron.predict(x)
-            test_err, test_cost = mse_err_cost(y_pred, y)
-            test_costs.append(test_cost)
-        for x, y in train_data:
-            train_cost = and_perceptron.train_gradient_descent(x, y, learning_rate)
-            train_costs.append(train_cost)
-
-        if (epoch % (max_epoch//10)) == 1:
-            print("Epoch: " + str(epoch))
-            print("Learning rate: " + str(learning_rate))
-            print("Testing cost: " + str(test_cost))
-            print("Training cost: " + str(train_cost) + "\n\n")
-        test_cost = np.mean(np.array(test_costs))
-        train_cost = np.mean(np.array(train_costs))
-        epoch += 1
-
-    test_costs = []
-    for x, y in test_data:
-        y_pred = and_perceptron.predict(x)
-        test_err, test_cost = mse_err_cost(y_pred, y)
-        test_costs.append(test_cost)
-    test_cost = np.mean(np.array(test_costs))
-    print("Testing cost: " + str(test_cost))
+    return np.array(list(map((lambda i: 1 if i > 0 else -1), x)))
 
 
-def mse_err_cost(y_pred, y_true):
-    return (y_pred - y_true), np.mean((y_pred - y_true) ** 2)
+def accuracy_0_1(pred, y):
+    return 0 if np.sum(unit_step_func_0_1(pred) - np.array(y)) != 0 else 1
 
 
-def mae_err_cost(y_pred, y_true):
-    return (y_pred - y_true), np.mean(((y_pred - y_true) ** 2)**0.5)
+def accuracy_neg1_1(pred, y):
+    return 0 if np.sum(unit_step_func_neg1_1(pred) - np.array(y)) != 0 else 1
+
+
+def sigmoid(x):
+    return np.array(1 / (np.exp(-x) + 1))
+
+
+def sigmoid_neg1_1(x):
+    return (np.array(1 / (np.exp(-x) + 1)) - 0.5) * 2
+
+
+def mse_err_cost(y_true, y_pred):
+    return 2*(y_true - y_pred), (y_true - y_pred) ** 2
+
+
+def mae_err_cost(y_true, y_pred):
+    return (y_true - y_pred), ((y_true - y_pred) ** 2)**0.5
 
 
 class MultioutputPerceptron:
@@ -71,9 +45,9 @@ class MultioutputPerceptron:
         self.input_size = input_size
         self.activation_func = activation_func
         if use_bias:
-            self.weights = 0.01 * np.random.randn(output_size, input_size + 1)
+            self.weights = 0.001 * np.random.randn(output_size, input_size + 1)
         else:
-            self.weights = 0.01 * np.random.randn(output_size, input_size)
+            self.weights = 0.001 * np.random.randn(output_size, input_size)
 
     def predict(self, inputs):
         if self.use_bias:
@@ -162,6 +136,65 @@ class MultioutputPerceptron:
         dif = l_rate * np.matmul(inputs, err)
         self.weights = self.weights - dif.T
         return cost
+
+    # ____________________________________________________________________
+    #                     STOCHASTIC GRADIENT DESCENT
+    # ____________________________________________________________________
+    def train_stochastic_gradient_descent(self, xs, ys, l_rate, cost_func=mse_err_cost):
+        batch_difs = []
+        cost = float('inf')
+        for i in range(len(xs)):
+            inputs = xs[i]
+            y_true = ys[i]
+            y_pred = self.predict(inputs)
+            err, cost = cost_func(y_pred, y_true)
+            if self.use_bias:
+                inputs = np.concatenate((inputs, np.array([1])))
+            dif = l_rate * inputs * err
+            batch_difs.append(dif)
+        update = sum(batch_difs)/len(xs)
+        self.weights = self.weights - update
+        return np.mean(np.array(cost))
+
+
+def main():
+    and_perceptron = MultioutputPerceptron(input_size=3, output_size=2, activation_func=sigmoid, use_bias=True)
+    train_data = [(np.array([1, 1, 1]), np.array([1, 0])),
+                  (np.array([0, 0, 1]), np.array([0, 1])),
+                  (np.array([0, 1, 0]), np.array([0, 1])),
+                  (np.array([0, 1, 1]), np.array([0, 1])),
+                  (np.array([1, 0, 0]), np.array([0, 1])),
+                  (np.array([1, 0, 1]), np.array([0, 1])),
+                  (np.array([1, 1, 0]), np.array([0, 1])),
+                  (np.array([0, 0, 0]), np.array([0, 1]))]
+
+    err = float('inf')
+    init_l_rate = 0.01
+    max_err = 0.01
+    epoch_max = 1000
+    epoch = -1
+    epochs = []
+    errs = []
+    accs = []
+    l_rate = init_l_rate
+    while err > max_err and epoch < epoch_max:
+        epoch += 1
+        err = 0
+        acc = 0
+        for x, y in train_data:
+            train_cost = and_perceptron.train_gradient_descent(x, y, l_rate)
+            pred = and_perceptron.predict(x)
+            acc += accuracy_0_1(pred, y)
+            err += train_cost
+        err = np.mean(err / len(train_data))
+        acc = acc / len(train_data)
+        epochs.append(epoch + 1)
+        errs.append(err)
+        accs.append(acc)
+    plt.plot(epochs, errs, label='errs')
+    plt.plot(epochs, accs, label='accs')
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':
