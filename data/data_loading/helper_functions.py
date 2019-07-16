@@ -7,8 +7,8 @@ def normalization(y_train, y_test, normalize):
 
     x_train = y_train / dividing_factor
     x_test = y_test / dividing_factor
-    x_train = x_train - move_factor
-    x_test = x_test - move_factor
+    x_train = x_train + move_factor
+    x_test = x_test + move_factor
     return x_train, x_test
 
 
