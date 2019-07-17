@@ -2,17 +2,18 @@ from neural_networks.implementing_basics.multioutput_perceptron import Multioutp
 from neural_networks.implementing_basics.costs_activations import sigmoid, sigmoid_training, mse_err_cost
 from data.data_loading.load_not_mnist import load_not_mnist_flat
 import numpy as np
-import cv2
 
 
+# Interestingly notMNIST gets about 87% accuracy in this simple perceptron
 def main():
-    epochs = 2
+    epochs = 50
     input_size = 28*28*1
     output_size = 10
     train, test = load_not_mnist_flat((0, 1))
-    cv2.imshow(' ', np.asarray(train[0][0].reshape(28, 28, 1)))
+
     perc = MultioutputPerceptron(input_size, output_size, use_bias=True, training_activation_func=sigmoid_training)
-    learning_rate = 0.01
+
+    learning_rate = 0.005
 
     for epoch in range(epochs):
         cost = 0
